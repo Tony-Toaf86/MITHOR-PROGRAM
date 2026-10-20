@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Interfaz de Windows (WinForms), bandeja, CLI y autodiagnóstico.
+    Base para la etapa .NET 8; la compilación actual usa build.ps1 con csc.exe y
+    el archivo de manifiesto se pasa por línea de comandos.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MITHOR</AssemblyName>
+    <RootNamespace>Mithor.App</RootNamespace>
+    <StartupObject>Mithor.App.Program</StartupObject>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\mithor.ico</ApplicationIcon>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mithor.Core\Mithor.Core.csproj" />
+    <ProjectReference Include="..\Mithor.Platform.Windows\Mithor.Platform.Windows.csproj" />
+  </ItemGroup>
+</Project>

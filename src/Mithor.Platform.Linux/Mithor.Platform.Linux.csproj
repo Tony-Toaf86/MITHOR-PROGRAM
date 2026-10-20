@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Backends de Linux (sysfs, ddcutil, RandR). Esqueleto funcional: compilan en
+    Windows y en Linux; las rutas y utilidades solo existen en Linux.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Mithor.Platform.Linux</AssemblyName>
+    <RootNamespace>Mithor.Platform.Linux</RootNamespace>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mithor.Core\Mithor.Core.csproj" />
+  </ItemGroup>
+</Project>

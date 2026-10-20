@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Núcleo portable de MITHOR.
+    La compilación actual de Windows no usa este proyecto: build.ps1 compila las
+    fuentes con csc.exe (.NET Framework 4.8). Este archivo es la base para la
+    etapa .NET 8 / Linux.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Mithor.Core</AssemblyName>
+    <RootNamespace>Mithor.Core</RootNamespace>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+</Project>

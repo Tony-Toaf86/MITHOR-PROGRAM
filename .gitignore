@@ -1,0 +1,14 @@
+# Artefactos de compilación
+build/
+bin/
+obj/
+*.pdb
+*.user
+
+# Registros y datos locales
+*.log
+dist/datos/
+datos/
+
+# Capturas temporales
+build/*.png
