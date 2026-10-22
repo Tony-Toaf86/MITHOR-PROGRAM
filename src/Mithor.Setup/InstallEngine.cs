@@ -17,6 +17,9 @@ namespace Mithor.Setup
         public const string Publisher = "MITHOR";
         public const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MITHOR";
 
+        /// <summary>Política de privacidad que se muestra en el instalador.</summary>
+        public const string PrivacyUrl = "https://tony-toaf86.github.io/mithor-privacy/";
+
         private const string LogFile = "mithor-setup.log";
 
         public static string DefaultDirectory

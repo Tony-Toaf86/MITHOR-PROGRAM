@@ -1,0 +1,141 @@
+name: release
+
+# Publica una versión firmada.
+#
+# La firma se hace en dos pasos porque el instalador lleva MITHOR.exe embebido como recurso:
+#   1. compilar y firmar MITHOR.exe;
+#   2. reempaquetar el instalador con ese ejecutable ya firmado y firmarlo también.
+# Si se firmara solo el instalador, el ejecutable que acaba en Program Files seguiría sin firma.
+#
+# Requiere configurar en el repositorio:
+#   - secret SIGNPATH_API_TOKEN
+#   - variable SIGNPATH_ORGANIZATION_ID
+# Ver docs/FIRMA-SIGNPATH.md.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  actions: read
+
+# Slugs definidos en SignPath (ver docs/FIRMA-SIGNPATH.md §5.1):
+#   project = mithor · signing policy = release-signing
+#   artifact configurations = mithor-app y mithor-setup
+
+jobs:
+  release:
+    name: Compilar, firmar y publicar
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Compilar
+        shell: pwsh
+        run: .\build.ps1
+
+      - name: Leer la versión del binario
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Get-Item dist\MITHOR.exe).VersionInfo.ProductVersion
+          if (-not $v) { throw 'No se pudo leer la versión del ejecutable' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Versión detectada: $v"
+
+      # --- Paso 1: firmar el ejecutable -------------------------------------
+
+      - name: Subir MITHOR.exe sin firmar
+        id: upload-app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithor-app-unsigned
+          path: dist/MITHOR.exe
+          if-no-files-found: error
+
+      - name: Firmar MITHOR.exe (SignPath)
+        id: sign-app
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: mithor
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: mithor-app
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-app
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+
+      - name: Verificar la firma del ejecutable
+        shell: pwsh
+        run: |
+          Copy-Item signed-app\MITHOR.exe dist\MITHOR.exe -Force
+          $sig = Get-AuthenticodeSignature dist\MITHOR.exe
+          Write-Host "MITHOR.exe: $($sig.Status) - $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "La firma de MITHOR.exe no es válida: $($sig.Status)" }
+
+      # --- Paso 2: empaquetar y firmar el instalador -------------------------
+
+      - name: Reempaquetar el instalador con el ejecutable firmado
+        shell: pwsh
+        run: .\build.ps1 -PackageOnly
+
+      - name: Subir MITHOR-Setup.exe sin firmar
+        id: upload-setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithor-setup-unsigned
+          path: dist/MITHOR-Setup.exe
+          if-no-files-found: error
+
+      - name: Firmar MITHOR-Setup.exe (SignPath)
+        id: sign-setup
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: mithor
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: mithor-setup
+          github-artifact-id: ${{ steps.upload-setup.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-setup
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+
+      - name: Verificar la firma del instalador
+        shell: pwsh
+        run: |
+          Copy-Item signed-setup\MITHOR-Setup.exe dist\MITHOR-Setup.exe -Force
+          $app = Get-AuthenticodeSignature dist\MITHOR.exe
+          $setup = Get-AuthenticodeSignature dist\MITHOR-Setup.exe
+          Write-Host "MITHOR.exe       : $($app.Status)"
+          Write-Host "MITHOR-Setup.exe : $($setup.Status)"
+          if ($app.Status -ne 'Valid') { throw 'MITHOR.exe no está firmado' }
+          if ($setup.Status -ne 'Valid') { throw 'MITHOR-Setup.exe no está firmado' }
+
+      - name: Calcular SHA-256 de los archivos firmados
+        shell: pwsh
+        run: |
+          $lineas = Get-FileHash dist\MITHOR.exe, dist\MITHOR-Setup.exe -Algorithm SHA256 |
+            ForEach-Object { '{0}  {1}' -f $_.Hash, (Split-Path $_.Path -Leaf) }
+          $lineas | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          Get-Content dist\SHA256SUMS.txt
+
+      - name: Publicar la release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            dist\MITHOR.exe `
+            dist\MITHOR.exe.config `
+            dist\MITHOR-Setup.exe `
+            dist\SHA256SUMS.txt `
+            --title "MITHOR ${{ github.ref_name }}" `
+            --generate-notes

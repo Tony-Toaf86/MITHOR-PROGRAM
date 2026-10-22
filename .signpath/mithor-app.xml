@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Artifact configuration de SignPath para MITHOR.exe (aplicación y agente).
+
+  Se pega en SignPath: Project "mithor" -> Artifact configurations -> "mithor-app".
+
+  El artefacto que llega es el ZIP que crea actions/upload-artifact, por eso la raíz es
+  <zip-file>. Las restricciones de metadatos (product-name y product-version) son
+  obligatorias para certificados de SignPath Foundation: obligan a que el ejecutable
+  tenga el nombre y la versión esperados y fallan la firma si no coinciden.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+
+  <parameters>
+    <parameter name="version" default-value="1.1.0.0" required="true" />
+  </parameters>
+
+  <zip-file>
+    <pe-file path="MITHOR.exe"
+             product-name="MITHOR"
+             product-version="${version}">
+      <authenticode-sign
+          description="MITHOR - control de brillo para Windows"
+          description-url="https://github.com/Tony-Toaf86/MITHOR-PROGRAM" />
+    </pe-file>
+  </zip-file>
+
+</artifact-configuration>

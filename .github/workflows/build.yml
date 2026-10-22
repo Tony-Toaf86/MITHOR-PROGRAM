@@ -1,0 +1,51 @@
+name: build
+
+# Compilación continua: no firma nada. Sirve para saber que el repositorio compila
+# y para revisar los binarios antes de preparar una release.
+
+on:
+  push:
+    branches: [main, colaborators, developer]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compilar en Windows
+    runs-on: windows-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Compilar MITHOR.exe y MITHOR-Setup.exe
+        shell: pwsh
+        run: .\build.ps1
+
+      - name: Comprobar que el ejecutable arranca
+        shell: pwsh
+        run: |
+          $out = (& .\dist\MITHOR.exe --list | Out-String).Trim()
+          if (-not $out) { throw 'MITHOR.exe --list no devolvió nada' }
+          Write-Host $out
+
+      - name: Calcular SHA-256
+        shell: pwsh
+        run: |
+          $lineas = Get-FileHash dist\MITHOR.exe, dist\MITHOR-Setup.exe -Algorithm SHA256 |
+            ForEach-Object { '{0}  {1}' -f $_.Hash, (Split-Path $_.Path -Leaf) }
+          $lineas | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          Get-Content dist\SHA256SUMS.txt
+
+      - name: Guardar los binarios sin firmar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithor-unsigned
+          path: |
+            dist/MITHOR.exe
+            dist/MITHOR.exe.config
+            dist/MITHOR-Setup.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

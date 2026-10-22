@@ -8,7 +8,10 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Clean
+    [switch]$Clean,
+    # Reutiliza dist\MITHOR.exe tal cual (por ejemplo, ya firmado por SignPath) y solo
+    # vuelve a empaquetar el instalador. Lo usa el flujo de firma en dos pasos.
+    [switch]$PackageOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,20 +76,91 @@ try {
         }
     }
 
-    $appSources = Get-ChildItem -Path (Join-Path $root 'src') -Recurse -Filter *.cs |
-        Where-Object { $_.FullName -notlike '*\Mithor.Setup\*' } |
-        Sort-Object FullName |
-        ForEach-Object { $_.FullName }
-    if ($appSources.Count -eq 0) {
-        throw 'No se encontraron archivos .cs para la aplicación.'
+    # Firma Authenticode opcional: se activa definiendo MITHOR_SIGN_THUMBPRINT con la huella del
+    # certificado instalado en Cert:\CurrentUser\My.
+    #
+    # El instalador embebe MITHOR.exe como recurso, así que hay que firmar el ejecutable ANTES de
+    # compilar el instalador. Si se firma solo el instalador, el binario de dentro queda sin firma
+    # y los antivirus lo marcan al extraerlo. Ver docs\FIRMA-Y-FALSOS-POSITIVOS.md.
+    $signThumbprint = $env:MITHOR_SIGN_THUMBPRINT
+
+    function Get-SignTool {
+        if ($env:MITHOR_SIGNTOOL -and (Test-Path $env:MITHOR_SIGNTOOL)) {
+            return $env:MITHOR_SIGNTOOL
+        }
+        $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+        if (Test-Path $kits) {
+            $found = Get-ChildItem $kits -Directory |
+                Sort-Object Name -Descending |
+                ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+                Where-Object { Test-Path $_ } |
+                Select-Object -First 1
+            if ($found) { return $found }
+        }
+        return $null
     }
 
-    $appArgs = @(
-        '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/langversion:5',
-        "/out:$appOutput", "/win32icon:$icon", "/win32manifest:$manifest", '/define:MITHOR_WINDOWS'
-    ) + $references + $appSources
-    Invoke-Csc -Arguments $appArgs -Name 'app'
+    function Invoke-Sign {
+        param([string]$Path)
 
+        if (-not $signThumbprint) { return }
+
+        Write-Host "Firmando   : $(Split-Path -Leaf $Path)"
+        & $signToolPath sign /sha1 $signThumbprint /fd SHA256 /tr http://timestamp.digicert.com `
+            /td SHA256 /d 'MITHOR - control de brillo' $Path
+        if ($LASTEXITCODE -ne 0) {
+            throw "La firma de $Path falló con código $LASTEXITCODE."
+        }
+    }
+
+    # Comprobación previa: si se pidió firmar, el certificado y signtool deben existir ya.
+    # Fallar aquí evita compilar dos veces solo para descubrirlo al final.
+    $signToolPath = $null
+    if ($signThumbprint) {
+        $signThumbprint = ($signThumbprint -replace '\s', '').ToUpperInvariant()
+        $cert = Get-ChildItem Cert:\CurrentUser\My, Cert:\LocalMachine\My -ErrorAction SilentlyContinue |
+            Where-Object { $_.Thumbprint -eq $signThumbprint -and $_.HasPrivateKey } |
+            Select-Object -First 1
+        if (-not $cert) {
+            throw "No hay ningún certificado con clave privada y huella $signThumbprint en Cert:\CurrentUser\My ni en Cert:\LocalMachine\My."
+        }
+        $signToolPath = Get-SignTool
+        if (-not $signToolPath) {
+            $msg = 'No se encontró signtool.exe.'
+            throw ($msg + ' Instala "Windows SDK Signing Tools for Desktop Apps" o define MITHOR_SIGNTOOL.')
+        }
+        Write-Host "Firma      : $($cert.Subject)"
+        Write-Host "Válido hasta: $($cert.NotAfter.ToString('yyyy-MM-dd'))"
+    }
+
+    if ($PackageOnly) {
+        # Flujo de firma en dos pasos: el ejecutable ya viene firmado por SignPath y solo hay
+        # que volver a empaquetar el instalador con ese ejecutable dentro.
+        if (-not (Test-Path $appOutput)) {
+            throw "No existe $appOutput. Compila antes sin -PackageOnly."
+        }
+        Write-Host "Paquete    : se reutiliza $appOutput sin recompilar."
+    }
+    else {
+        $appSources = Get-ChildItem -Path (Join-Path $root 'src') -Recurse -Filter *.cs |
+            Where-Object { $_.FullName -notlike '*\Mithor.Setup\*' } |
+            Sort-Object FullName |
+            ForEach-Object { $_.FullName }
+        if ($appSources.Count -eq 0) {
+            throw 'No se encontraron archivos .cs para la aplicación.'
+        }
+
+        $appArgs = @(
+            '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/langversion:5',
+            "/out:$appOutput", "/win32icon:$icon", "/win32manifest:$manifest", '/define:MITHOR_WINDOWS'
+        ) + $references + $appSources
+        Invoke-Csc -Arguments $appArgs -Name 'app'
+
+        # Firmar el ejecutable antes de embeberlo en el instalador.
+        Invoke-Sign -Path $appOutput
+    }
+
+    # El archivo de configuración acompaña siempre al ejecutable.
     Copy-Item $config (Join-Path $dist 'MITHOR.exe.config') -Force
 
     $setupSources = Get-ChildItem -Path (Join-Path $root 'src\Mithor.Setup') -Recurse -Filter *.cs |
@@ -103,11 +177,22 @@ try {
     ) + $references + $setupSources
     Invoke-Csc -Arguments $setupArgs -Name 'setup'
 
+    # Firmar el instalador (contiene el MITHOR.exe ya firmado).
+    Invoke-Sign -Path $setupOutput
+
     Write-Host ''
     $appFile = Get-Item $appOutput
     $setupFile = Get-Item $setupOutput
     Write-Host ("MITHOR.exe        {0,10:N0} bytes  {1}" -f $appFile.Length, $appFile.FullName)
     Write-Host ("MITHOR-Setup.exe  {0,10:N0} bytes  {1}" -f $setupFile.Length, $setupFile.FullName)
+    Write-Host ''
+    if ($signThumbprint) {
+        Write-Host 'Firmados   : sí (Authenticode + sello de tiempo).'
+    }
+    else {
+        Write-Host 'Aviso      : binarios SIN firmar. Define $env:MITHOR_SIGN_THUMBPRINT para firmarlos.'
+        Write-Host '             Ver docs\FIRMA-Y-FALSOS-POSITIVOS.md.'
+    }
     Write-Host ''
     Write-Host 'Instalación: ejecuta dist\MITHOR-Setup.exe como administrador.'
     Write-Host 'Prueba rápida: MITHOR.exe --list'

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Artifact configuration de SignPath para MITHOR-Setup.exe (instalador).
+
+  Se pega en SignPath: Project "mithor" -> Artifact configurations -> "mithor-setup".
+
+  El instalador se firma DESPUÉS de que MITHOR.exe esté firmado, porque lo lleva
+  embebido como recurso (payload.MITHOR.exe). Por eso el flujo de release tiene dos
+  solicitudes de firma: primero la aplicación, después el instalador.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+
+  <parameters>
+    <parameter name="version" default-value="1.1.0.0" required="true" />
+  </parameters>
+
+  <zip-file>
+    <pe-file path="MITHOR-Setup.exe"
+             product-name="MITHOR"
+             product-version="${version}">
+      <authenticode-sign
+          description="MITHOR 1.1 - instalador"
+          description-url="https://github.com/Tony-Toaf86/MITHOR-PROGRAM" />
+    </pe-file>
+  </zip-file>
+
+</artifact-configuration>

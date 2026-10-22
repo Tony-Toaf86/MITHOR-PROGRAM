@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -63,10 +64,10 @@ namespace Mithor.Setup
                 ? "Se detendrá el servicio de Windows, se cerrará MITHOR y se eliminarán "
                   + "los archivos, los accesos directos y el registro de la aplicación.\n\n"
                   + "Los ajustes de brillo guardados en tu perfil no se borran."
-                : "MITHOR instalará el controlador de brillo y su servicio de Windows.\n\n"
-                  + "  ·  El servicio arranca con Windows y mantiene MITHOR en segundo plano.\n"
-                  + "  ·  El icono aparece en la bandeja del sistema (iconos ocultos).\n"
-                  + "  ·  Al cerrar la ventana, MITHOR sigue funcionando.\n\n"
+                : "MITHOR se instalará en C:\\Program Files\\MITHOR y registrará el servicio «MITHOR».\n\n"
+                  + "  ·  El servicio se ejecuta como LocalSystem y arranca con Windows.\n"
+                  + "  ·  Crea accesos directos y una entrada en «Agregar o quitar programas».\n"
+                  + "  ·  Se puede desinstalar como cualquier otro programa.\n\n"
                   + "Se necesitan permisos de administrador para registrar el servicio.";
             Controls.Add(description);
 
@@ -139,6 +140,21 @@ namespace Mithor.Setup
 
             footer.Controls.Add(_primary);
             footer.Controls.Add(_secondary);
+
+            // Enlace a la política de privacidad, siempre visible durante la instalación.
+            LinkLabel privacy = new LinkLabel();
+            privacy.Text = "Política de privacidad";
+            privacy.AutoSize = true;
+            privacy.Font = new Font(FontFamily, 8.75f);
+            privacy.LinkColor = Color.FromArgb(139, 148, 158);
+            privacy.ActiveLinkColor = Color.FromArgb(240, 164, 58);
+            privacy.VisitedLinkColor = Color.FromArgb(139, 148, 158);
+            privacy.LinkBehavior = LinkBehavior.HoverUnderline;
+            privacy.BackColor = Color.FromArgb(22, 27, 34);
+            privacy.Location = new Point(30, 32);
+            privacy.LinkClicked += delegate { OpenUrl(InstallEngine.PrivacyUrl); };
+            footer.Controls.Add(privacy);
+
             Controls.Add(footer);
         }
 
@@ -170,6 +186,22 @@ namespace Mithor.Setup
                 {
                     Close();
                 }
+            }
+        }
+
+        /// <summary>Abre un enlace en el navegador. Es la única conexión que inicia el instalador.</summary>
+        private static void OpenUrl(string url)
+        {
+            try
+            {
+                ProcessStartInfo info = new ProcessStartInfo(url);
+                info.UseShellExecute = true;
+                Process.Start(info);
+            }
+            catch
+            {
+                MessageBox.Show("No se pudo abrir el navegador. La dirección es:\n" + url,
+                    "MITHOR", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 

@@ -10,6 +10,10 @@ permite.
 
 ![Interfaz de MITHOR](docs/img/interfaz.png)
 
+**Privacidad:** MITHOR no recoge ni envía datos ·
+[Política de privacidad](https://tony-toaf86.github.io/mithor-privacy/) ·
+Licencia [MIT](LICENSE)
+
 ---
 
 ## Novedades de la versión 1.1
@@ -135,6 +139,18 @@ Genera:
 
 No hace falta Visual Studio ni el SDK de .NET.
 
+El flujo de release compila, firma y publica con GitHub Actions
+([`.github/workflows/release.yml`](.github/workflows/release.yml)). Para firmar en local con un
+certificado propio:
+
+```powershell
+$env:MITHOR_SIGN_THUMBPRINT = 'A1B2C3...'   # huella del certificado en Cert:\CurrentUser\My
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -Clean
+```
+
+`-PackageOnly` reutiliza `dist\MITHOR.exe` sin recompilarlo y solo vuelve a empaquetar el
+instalador; es lo que permite embeber un ejecutable ya firmado y firmar después el instalador.
+
 ## Uso de la interfaz
 
 1. Abre MITHOR desde el icono de la bandeja o desde el menú Inicio.
@@ -239,3 +255,39 @@ paso en [docs/INSTALACION.md](docs/INSTALACION.md).
   [docs/ROADMAP-LINUX.md](docs/ROADMAP-LINUX.md).
 
 Los archivos `.csproj` son la base para esa etapa; la compilación actual no los usa.
+
+## Privacidad
+
+MITHOR **no recoge, transmite ni vende datos personales**. No tiene telemetría, ni cuentas, ni
+publicidad, ni actualizador automático, y la aplicación no abre conexiones de red.
+
+Los ajustes y los registros se guardan en tu equipo (`%LOCALAPPDATA%\MITHOR` y
+`C:\ProgramData\MITHOR\logs`) y nunca salen de él. Puedes consultarlo desde la propia aplicación, en
+**Ajustes → Política de privacidad**.
+
+![Política de privacidad en Ajustes](docs/img/privacidad-ajustes.png)
+
+Política completa: <https://tony-toaf86.github.io/mithor-privacy/>
+
+## Code signing policy (firma de código)
+
+Los binarios oficiales de MITHOR se firman con un certificado de **SignPath Foundation**.
+
+> Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+> [SignPath Foundation](https://signpath.org).
+
+**Roles del proyecto** (un único mantenedor):
+
+- Committers and reviewers: [@Tony-Toaf86](https://github.com/Tony-Toaf86)
+- Approvers: [@Tony-Toaf86](https://github.com/Tony-Toaf86)
+
+Cada release se compila en GitHub Actions desde este repositorio y cada solicitud de firma requiere
+aprobación manual. El proceso completo está en [docs/FIRMA-SIGNPATH.md](docs/FIRMA-SIGNPATH.md).
+
+**Privacidad de los usuarios:** ver la
+[política de privacidad](https://tony-toaf86.github.io/mithor-privacy/). MITHOR no transfiere
+ninguna información a otros sistemas, salvo cuando el usuario abre un enlace de forma explícita.
+
+## Licencia
+
+MIT. Ver [LICENSE](LICENSE).

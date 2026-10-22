@@ -1,0 +1,10 @@
+# Personas responsables del código y de las firmas.
+#
+# SignPath exige que los equipos estén organizados por roles:
+#   - Authors    : pueden modificar el código (committers)
+#   - Reviewers  : revisan los cambios de terceros
+#   - Approvers  : autorizan cada solicitud de firma
+#
+# Con una sola persona, todos los roles recaen en el propietario del repositorio.
+
+*   @Tony-Toaf86

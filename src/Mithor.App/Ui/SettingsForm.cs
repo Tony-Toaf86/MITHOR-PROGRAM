@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
+using Mithor.Core;
 using Mithor.Core.Config;
 using Mithor.Core.Util;
 using Mithor.Platform.Windows;
@@ -181,8 +183,21 @@ namespace Mithor.App.Ui
             cancel.Margin = new Padding(0, 0, Theme.Scale(this, 10), 0);
             cancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
 
+            LinkLabel privacy = new LinkLabel();
+            privacy.Text = "Política de privacidad";
+            privacy.AutoSize = true;
+            privacy.Font = Theme.Small;
+            privacy.LinkColor = Theme.Muted;
+            privacy.ActiveLinkColor = Theme.Accent;
+            privacy.VisitedLinkColor = Theme.Muted;
+            privacy.LinkBehavior = LinkBehavior.HoverUnderline;
+            privacy.BackColor = Theme.Surface;
+            privacy.Margin = new Padding(0, Theme.Scale(this, 11), Theme.Scale(this, 18), 0);
+            privacy.LinkClicked += delegate { OpenUrl(ProductInfo.PrivacyUrl); };
+
             buttons.Controls.Add(save);
             buttons.Controls.Add(cancel);
+            buttons.Controls.Add(privacy);
 
             Controls.Add(content);
             Controls.Add(buttons);
@@ -340,6 +355,24 @@ namespace Mithor.App.Ui
             button.FlatAppearance.MouseDownBackColor = Theme.Border;
             button.Height = Theme.Scale(this, 32);
             return button;
+        }
+
+        /// <summary>
+        /// Abre un enlace en el navegador del usuario. Es la única salida a Internet relacionada con
+        /// MITHOR y solo ocurre cuando el usuario pulsa el enlace: la aplicación no hace red sola.
+        /// </summary>
+        private static void OpenUrl(string url)
+        {
+            try
+            {
+                ProcessStartInfo info = new ProcessStartInfo(url);
+                info.UseShellExecute = true;
+                Process.Start(info);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("No se pudo abrir el enlace " + url + ": " + Log.Describe(ex));
+            }
         }
 
         private void Save()
